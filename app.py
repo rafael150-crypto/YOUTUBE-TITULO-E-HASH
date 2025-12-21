@@ -37,7 +37,7 @@ if uploaded_file is not None:
         Atue como especialista em YouTube Shorts. Analise o vídeo e retorne APENAS o texto final para copiar, seguindo esta ordem:
         1. O título viral (com emojis).
         2. Uma linha com as 5 hashtags.
-        3. Uma linha com a descrição curta.
+        3. Descriçao completa.
         4. Por último, escreva apenas 'CAPA: X' onde X é o segundo sugerido.
         NÃO use as palavras 'TITULO:', 'HASHTAGS:' ou 'DESCRICAO:'.
         """
