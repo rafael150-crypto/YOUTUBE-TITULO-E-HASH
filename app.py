@@ -11,7 +11,7 @@ st.set_page_config(page_title="BrendaBot Viral v2", page_icon="🎬", layout="wi
 st.title("🚀 Gerador de Conteúdo Viral Pro")
 
 # Configurar API
-API_KEY = "SUA_API_KEY_AQUI" # Lembre-se de usar Secrets no Streamlit Cloud por segurança
+API_KEY = "AIzaSyDmqVD3ZnaPKumWVrlJUpvWgbZNxNT9unY" # Lembre-se de usar Secrets no Streamlit Cloud por segurança
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('models/gemini-1.5-flash')
 
