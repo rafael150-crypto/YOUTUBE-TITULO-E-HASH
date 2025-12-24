@@ -11,7 +11,7 @@ st.set_page_config(page_title="BrendaBot Viral", page_icon="🎬", layout="wide"
 st.title("🚀 Gerador de Conteúdo Viral")
 
 # Configurar API - Mantendo exatamente como você usava
-API_KEY = "AIzaSyDmqVD3ZnaPKumWVrlJUpvWgbZNxNT9unY"
+API_KEY = "AIzaSyCiJyxLVYVgI7EiTuQmkQGTi1nWiQn9g_8"
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('models/gemini-2.5-flash')
 
