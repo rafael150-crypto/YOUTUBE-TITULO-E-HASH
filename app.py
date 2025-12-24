@@ -8,78 +8,71 @@ import time
 
 # Configuração da Página
 st.set_page_config(page_title="BrendaBot Viral Ultra", page_icon="🔥", layout="wide")
-st.title("🔥 QG de Viralização - BrendaBot Ultra")
+st.title("🔥 Validador de Viabilidade e Viralização")
 
 # Configurar API
 API_KEY = "AIzaSyCiJyxLVYVgI7EiTuQmkQGTi1nWiQn9g_8"
 genai.configure(api_key=API_KEY)
 
-# Mantendo o modelo que você confirmou que funciona
+# Mantendo o modelo que você usa
 model = genai.GenerativeModel('models/gemini-2.5-flash')
 
-uploaded_file = st.file_uploader("Escolha um vídeo...", type=["mp4", "mov", "avi"])
+uploaded_file = st.file_uploader("Suba o vídeo para validação estratégica...", type=["mp4", "mov", "avi"])
 
 if uploaded_file is not None:
     tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') 
     tfile.write(uploaded_file.read())
     video_path = tfile.name
     
-    st.info("🚀 BrendaBot está fazendo uma auditoria completa do seu vídeo...")
+    st.info("🕵️ Analisando riscos e potencial... Aguarde.")
     
     try:
-        # Upload do arquivo para a IA
         video_file = genai.upload_file(path=video_path, mime_type="video/mp4")
         
         while video_file.state.name == "PROCESSING":
             time.sleep(2)
             video_file = genai.get_file(video_file.name)
             
-        # PROMPT ULTRA AVANÇADO
+        # PROMPT FOCADO EM VIABILIDADE E DIRETRIZES PRIMEIRO
         prompt = """
-        Atue como um Diretor de Conteúdo e Especialista em Algoritmos de Redes Sociais. 
-        Analise o vídeo e retorne um relatório estruturado exatamente assim:
+        Atue como Especialista em Algoritmo do YouTube e Moderador de Conteúdo. 
+        Analise o vídeo e retorne o relatório RIGOROSAMENTE nesta ordem:
 
-        ### 🎯 ANÁLISE DE PERFORMANCE
-        1. **POTENCIAL DE VIRALIZAÇÃO**: (Dê uma nota de 0 a 100% e explique o porquê).
-        2. **QUALIDADE DO GANCHO (HOOK)**: (Analise os primeiros 5 segundos. O espectador vai parar de rolar a tela? Como melhorar?).
-        3. **PONTOS DE RETENÇÃO**: (Em quais momentos o vídeo fica lento e as pessoas podem sair?).
+        ### 🚨 PAINEL DE VIABILIDADE (LEIA PRIMEIRO)
+        1. **RISCO DE RESTRIÇÃO**: (O vídeo viola diretrizes? Tem palavras proibidas, temas sensíveis ou algo que possa causar "Shadowban" ou desmonetização? Dê um status: SEGURO, ARRISCADO ou CRÍTICO).
+        2. **CHANCE DE FEED**: (O algoritmo vai distribuir este vídeo no Shorts/Feed? Analise se o conteúdo é original e visualmente atraente para a plataforma).
+        3. **VEREDITO DO GANCHO (HOOK)**: (O início prende em 3 segundos? Se não, o vídeo vai 'morrer' cedo. Nota 0-10).
 
-        ### 📝 CONTEÚDO PARA POSTAGEM
-        4. **TÍTULO E HASHTAGS**: (Sugestão viral com emojis).
-        5. **DESCRIÇÃO SEO**: (Texto otimizado para busca).
-        6. **COMENTÁRIO FIXADO**: (Pergunta para gerar debate).
+        ### 📈 ANÁLISE DE PERFORMANCE
+        4. **POTENCIAL DE VIRALIZAÇÃO**: (0 a 100% e justificativa).
+        5. **PONTOS DE ABANDONO**: (Em quais segundos o vídeo fica chato e o público vai sair?).
 
-        ### ✂️ ESTRATÉGIA DE REPURPOSING
-        7. **CAPÍTULOS**: (Timestamps 00:00 - Assunto).
-        8. **CORTES PARA SHORTS**: (Sugira tempos exatos para extrair pequenos vídeos virais).
-        9. **QUOTES MAGNÉTICAS**: (As 3 frases mais impactantes ditas no vídeo para usar em legendas).
+        ### 📝 ATIVOS DE POSTAGEM (Caso decida postar)
+        6. **TÍTULO E HASHTAGS**.
+        7. **DESCRIÇÃO SEO**.
+        8. **CAPÍTULOS E CORTES**.
+        9. **COMENTÁRIO FIXADO**.
+        10. **QUOTES PARA REDES SOCIAIS**.
 
-        ### 🌍 EXPANSÃO GLOBAL
-        10. **INGLÊS**: (Traduza o Título e a Descrição para o Inglês).
+        ### 🌍 TRADUÇÃO
+        11. Título e Descrição em Inglês.
 
         ### 🖼️ THUMBNAIL
-        11. Escreva ao final apenas: 'CAPA: X' (onde X é o melhor segundo do vídeo para a capa).
+        Escreva ao final apenas: 'CAPA: X' (onde X é o melhor segundo).
         """
         
         response = model.generate_content([video_file, prompt])
         texto_ia = response.text
         
-        # Interface em duas colunas
         col1, col2 = st.columns([1.2, 0.8])
         
         with col1:
-            st.subheader("📊 Auditoria de Conteúdo")
-            # Exclui apenas a tag de CAPA da área de texto principal
+            st.subheader("📋 Relatório Estratégico")
+            # Exibe o texto completo (que agora começa com os riscos)
             texto_exibicao = re.sub(r'CAPA:\s*\d+', '', texto_ia)
-            st.markdown(texto_exibicao) # Usando markdown para ficar bonito
-            
-            # Campo de cópia rápida
-            st.divider()
-            st.subheader("📋 Copiar Textos")
-            st.text_area("Copie aqui título, descrição e tags:", texto_exibicao, height=300)
+            st.markdown(texto_exibicao)
         
         with col2:
-            # Extrair Capa
             match = re.search(r'CAPA:\s*(\d+)', texto_ia)
             segundo = int(match.group(1)) if match else 1
             
@@ -88,24 +81,25 @@ if uploaded_file is not None:
             success, frame = cap.read()
             
             if success:
-                st.subheader(f"🖼️ Thumbnail Sugerida (Seg {segundo})")
+                st.subheader(f"🖼️ Sugestão de Capa (Seg {segundo})")
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 st.image(frame_rgb, use_container_width=True)
                 
-                # Botão de download da capa
                 ret, buffer = cv2.imencode('.jpg', frame)
-                st.download_button(label="📥 Baixar Capa", data=buffer.tobytes(), file_name="capa_sugerida.jpg", mime="image/jpeg")
+                st.download_button(label="📥 Baixar Capa", data=buffer.tobytes(), file_name="thumbnail.jpg", mime="image/jpeg")
             
             cap.release()
             
-            st.success("Análise Finalizada!")
-            st.balloons()
+            # Alerta visual baseado no texto
+            if "CRÍTICO" in texto_ia or "ARRISCADO" in texto_ia:
+                st.warning("⚠️ Atenção: Este vídeo possui riscos de performance ou diretrizes.")
+            else:
+                st.success("✅ Vídeo validado para postagem!")
         
-        # Limpeza na Google API
         genai.delete_file(video_file.name)
         
     except Exception as e:
-        st.error(f"Erro na análise: {e}")
+        st.error(f"Erro: {e}")
     finally:
         if os.path.exists(video_path):
             os.remove(video_path)
