@@ -11,7 +11,7 @@ st.set_page_config(page_title="BrendaBot Viral Ultra", page_icon="🔥", layout=
 st.title("🔥 Validador de Viabilidade e Viralização")
 
 # Configurar API
-API_KEY = "AIzaSyAXMHYg7kRRA74fwOXxH9mP3hqF4H2h2sg"
+API_KEY = "AIzaSyCDpC1EqK1MFXkFW84rdnQPrcWsbB16k4A"
 genai.configure(api_key=API_KEY)
 
 # Mantendo o modelo que você usa
