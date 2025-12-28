@@ -29,55 +29,31 @@ except Exception as e:
     st.error(f"Erro ao configurar API: {e}")
     st.stop()
 
-# Listar modelos disponíveis (apenas gemini-3.x)
-def get_available_models():
-    try:
-        models = genai.list_models()
-        all_models = []
-        
-        for model in models:
-            if "generateContent" in model.supported_methods:
-                all_models.append(model.name)
-        
-        return all_models
-        
-    except Exception as e:
-        st.error(f"Erro ao listar modelos: {e}")
-        return []
+# Modelo fixo: gemini-3.0
+MODEL_NAME = "gemini-3.0"
 
-all_models = get_available_models()
-
-# Mostrar modelos gemini-3.x na sidebar
-st.sidebar.subheader("📋 Modelos Disponíveis")
-
-if all_models:
-    # Filtrar apenas modelos gemini-3.x
-    models_3x = [m for m in all_models if "gemini-3" in m]
+# Verificar se o modelo funciona
+try:
+    model_test = genai.GenerativeModel(MODEL_NAME)
+    st.sidebar.success(f"✅ Modelo {MODEL_NAME} disponível!")
+except Exception as e:
+    st.sidebar.error(f"⚠️ {MODEL_NAME} indisponível")
+    # Tentar варианты alternativas
+    alternatives = ["gemini-3.0-pro", "gemini-3.0-flash", "gemini-3.5-pro", "gemini-3.5-flash"]
     
-    if models_3x:
-        st.sidebar.text(f"Modelos Gemini 3.x: {len(models_3x)}")
-        for i, name in enumerate(models_3x):
-            clean_name = name.replace("models/", "")
-            st.sidebar.text(f"  {i+1}. {clean_name}")
-        
-        # Selecionar automaticamente o primeiro modelo gemini-3.x disponível
-        MODEL_NAME = models_3x[0]
-        st.sidebar.success(f"✅ Usando: {MODEL_NAME}")
+    for alt in alternatives:
+        try:
+            model_test = genai.GenerativeModel(alt)
+            MODEL_NAME = alt
+            st.sidebar.success(f"✅ Usando alternativa: {MODEL_NAME}")
+            break
+        except:
+            continue
     else:
-        st.sidebar.warning("⚠️ Nenhum modelo Gemini 3.x encontrado!")
-        st.sidebar.text("Modelos disponíveis:")
-        for name in all_models[:5]:
-            st.sidebar.text(f"  - {name}")
-        MODEL_NAME = None
-else:
-    st.error("❌ Não foi possível carregar modelos!")
-    MODEL_NAME = None
+        st.error(f"❌ Nenhum modelo Gemini 3.x disponível!")
+        st.stop()
 
-# Verificação inicial
-if MODEL_NAME is None:
-    st.error("❌ Nenhum modelo Gemini 3.x disponível!")
-    st.info("💡 Verifique sua API key e acesso aos modelos Gemini 3.0")
-    st.stop()
+st.sidebar.text(f"🎯 Modelo: {MODEL_NAME}")
 
 # Função para upload de vídeo com retry
 def upload_video_with_retry(path, mime_type, max_retries=3):
