@@ -17,45 +17,39 @@ st.set_page_config(
 st.title("🔥 Validador de Viabilidade e Viralização")
 st.markdown("---")
 
-# Configurar API
+# --- CONFIGURAÇÃO DE API SEGURA ---
+# Tenta pegar dos secrets do Streamlit
 API_KEY = st.secrets.get("GEMINI_API_KEY", None)
 
 if not API_KEY:
-    API_KEY = "AIzaSyBPJayL5rgY25x-zkBaZ35GDNop-8VNbt0"
-
-try:
-    genai.configure(api_key=API_KEY)
-except Exception as e:
-    st.error(f"Erro ao configurar API: {e}")
-    st.stop()
-
-# Modelo fixo: gemini-3.0
-MODEL_NAME = "gemini-3.0"
-
-# Verificar se o modelo funciona
-try:
-    model_test = genai.GenerativeModel(MODEL_NAME)
-    st.sidebar.success(f"✅ Modelo {MODEL_NAME} disponível!")
-except Exception as e:
-    st.sidebar.error(f"⚠️ {MODEL_NAME} indisponível")
-    # Tentar варианты alternativas
-    alternatives = ["gemini-3.0-pro", "gemini-3.0-flash", "gemini-3.5-pro", "gemini-3.5-flash"]
-    
-    for alt in alternatives:
-        try:
-            model_test = genai.GenerativeModel(alt)
-            MODEL_NAME = alt
-            st.sidebar.success(f"✅ Usando alternativa: {MODEL_NAME}")
-            break
-        except:
-            continue
-    else:
-        st.error(f"❌ Nenhum modelo Gemini 3.x disponível!")
+    st.warning("⚠️ Chave de API não configurada nos Secrets. Por favor, insira manualmente para testar:")
+    API_KEY = st.text_input("Cole sua Gemini API Key aqui:", type="password")
+    if not API_KEY:
         st.stop()
 
-st.sidebar.text(f"🎯 Modelo: {MODEL_NAME}")
+genai.configure(api_key=API_KEY)
 
-# Função para upload de vídeo com retry
+# Lista de modelos reais (Gemini 1.5 é o padrão atual para vídeo)
+# O 1.5-flash é mais rápido e ideal para o Streamlit não travar
+VALID_MODELS = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+MODEL_NAME = None
+
+for model_id in VALID_MODELS:
+    try:
+        # Teste de conexão simples
+        model_test = genai.GenerativeModel(model_id)
+        MODEL_NAME = model_id
+        st.sidebar.success(f"✅ Conectado ao modelo: {MODEL_NAME}")
+        break
+    except Exception:
+        continue
+
+if not MODEL_NAME:
+    st.error("❌ Erro: Nenhum modelo disponível. Verifique sua chave de API.")
+    st.stop()
+
+# --- FUNÇÕES DE SUPORTE ---
+
 def upload_video_with_retry(path, mime_type, max_retries=3):
     for attempt in range(max_retries):
         try:
@@ -68,7 +62,6 @@ def upload_video_with_retry(path, mime_type, max_retries=3):
             return None, str(e)
     return None, "Máximo de tentativas excedido"
 
-# Função para aguardar processamento com progresso
 def wait_for_processing(video_file, max_wait_time=300):
     start_time = time.time()
     progress_bar = st.progress(0)
@@ -79,235 +72,121 @@ def wait_for_processing(video_file, max_wait_time=300):
         if elapsed > max_wait_time:
             return None, "Timeout: processamento excedeu 5 minutos"
         
-        if video_file.state.name == "PROCESSING":
+        # Recarregar status do arquivo
+        current_file = genai.get_file(video_file.name)
+        
+        if current_file.state.name == "PROCESSING":
             progress = min(elapsed / max_wait_time, 1.0)
             progress_bar.progress(progress)
-            status_text.text(f"⏳ Processando vídeo... ({int(elapsed)}s)")
-            time.sleep(3)
-            try:
-                video_file = genai.get_file(video_file.name)
-            except Exception as e:
-                return None, f"Erro ao verificar status: {e}"
+            status_text.text(f"⏳ IA Processando vídeo... ({int(elapsed)}s)")
+            time.sleep(5)
+        elif current_file.state.name == "FAILED":
+            return None, "O processamento do vídeo falhou nos servidores do Google."
         else:
             break
     
     progress_bar.empty()
     status_text.empty()
-    return video_file, None
+    return current_file, None
 
-# Função para extrair thumbnail com validação
 def extract_thumbnail(video_path, target_second):
     try:
         cap = cv2.VideoCapture(video_path)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        duration = total_frames / fps if fps > 0 else 0
+        duration = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) / fps) if fps > 0 else 0
         
         if target_second > duration:
-            target_second = max(1, int(duration / 2))
-        
+            target_second = max(1, duration // 2)
+            
         cap.set(cv2.CAP_PROP_POS_MSEC, target_second * 1000)
         success, frame = cap.read()
         cap.release()
         
         if success:
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), None
-        return None, "Não foi possível extrair frame"
+        return None, "Erro ao capturar frame"
     except Exception as e:
         return None, str(e)
 
-# Função para extrair segundos da thumbnail
 def extract_thumbnail_seconds(text):
-    patterns = [
-        r'(?:CAPA|Capa|THUMBNAIL|Thumbnail|thumb)\s*[:=]?\s*(\d+)',
-        r'(?:melhor|segundo|frame)\s*(?:\w+\s*)?(?:é|e|do)?\s*(\d+)',
-        r'(\d{1,2})\s*(?:segundos?|seg|second)',
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            seconds = int(match.group(1))
-            if 1 <= seconds <= 300:
-                return seconds
-    return None
+    match = re.search(r'CAPA:\s*(\d+)', text, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return 1
 
-# Interface principal
-uploaded_file = st.file_uploader(
-    "📹 Suba o vídeo para validação estratégica...", 
-    type=["mp4", "mov", "avi", "mkv", "webm"],
-    help="Vídeos de até 2 minutos têm melhor performance."
-)
+# --- INTERFACE PRINCIPAL ---
 
-if uploaded_file is not None:
-    file_details = {
-        "Nome": uploaded_file.name,
-        "Tamanho": f"{uploaded_file.size / (1024*1024):.2f} MB",
-        "Tipo": uploaded_file.type
-    }
-    st.sidebar.subheader("📁 Detalhes do Arquivo")
-    for key, value in file_details.items():
-        st.sidebar.text(f"{key}: {value}")
-    
-    max_size_mb = 50
-    if uploaded_file.size > max_size_mb * 1024 * 1024:
-        st.error(f"❌ Arquivo muito grande! Máximo permitido: {max_size_mb} MB")
-        st.stop()
-    
+uploaded_file = st.file_uploader("📹 Suba o vídeo para análise estratégica", type=["mp4", "mov", "avi"])
+
+if uploaded_file:
+    # Salvar arquivo temporário
     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tfile:
         tfile.write(uploaded_file.read())
         video_path = tfile.name
-    
-    st.info("🕵️ Analisando riscos e potencial de viralização...")
-    
+
+    st.info("🚀 Iniciando análise profunda...")
+
     try:
-        # Step 1: Upload do vídeo
-        with st.spinner("📤 Fazendo upload do vídeo para análise..."):
-            video_file, upload_error = upload_video_with_retry(video_path, "video/mp4")
-        
-        if upload_error:
-            st.error(f"❌ Erro no upload: {upload_error}")
-            raise Exception(upload_error)
-        
-        st.success("✅ Upload concluído!")
-        
-        # Step 2: Aguardar processamento
-        video_file, processing_error = wait_for_processing(video_file)
-        
-        if processing_error:
-            st.error(f"❌ Erro no processamento: {processing_error}")
-            raise Exception(processing_error)
-        
-        if video_file is None:
-            st.error("❌ Não foi possível processar o vídeo")
-            raise Exception("Vídeo não processado")
-        
-        st.success("✅ Vídeo processado com sucesso!")
-        
-        # Step 3: Gerar análise
+        # 1. Upload
+        video_file, err = upload_video_with_retry(video_path, "video/mp4")
+        if err: st.error(err); st.stop()
+
+        # 2. Processamento
+        video_file, err = wait_for_processing(video_file)
+        if err: st.error(err); st.stop()
+
+        # 3. Análise com Prompt Otimizado
         prompt = """
-        Atue como Especialista em Algoritmo do YouTube e Moderador de Conteúdo. 
-        Analise o vídeo e retorne o relatório RIGOROSAMENTE nesta ordem:
-
-        ### 🚨 PAINEL DE VIABILIDADE (LEIA PRIMEIRO)
-
-        1. **RISCO DE RESTRIÇÃO**: (O vídeo viola diretrizes? Tem palavras proibidas, temas sensíveis ou algo que possa causar "Shadowban" ou desmonetização? Dê um status: SEGURO, ARRISCADO ou CRÍTICO).
-
-        2. **CHANCE DE FEED**: (O algoritmo vai distribuir este vídeo no Shorts/Feed? Analise se o conteúdo é original e visualmente atraente para a plataforma).
-
-        3. **VEREDITO DO GANCHO (HOOK)**: (O início prende em 3 segundos? Se não, o vídeo vai 'morrer' cedo. Nota 0-10).
+        Analise este vídeo como um Diretor de Criação e Especialista em Viralização.
+        
+        ### 🚨 PAINEL DE VIABILIDADE
+        1. RISCO DE RESTRIÇÃO: (SEGURO, ARRISCADO ou CRÍTICO). Cite elementos visuais ou falas sensíveis.
+        2. CHANCE DE FEED: Avalie a qualidade técnica (iluminação, áudio e enquadramento).
+        3. VEREDITO DO GANCHO: Nota 0-10 para os primeiros 3 segundos.
 
         ### 📈 ANÁLISE DE PERFORMANCE
+        4. POTENCIAL DE VIRALIZAÇÃO: % de chance de viralizar.
+        5. RETENÇÃO: Em quais segundos há risco de o usuário pular o vídeo?
 
-        4. **POTENCIAL DE VIRALIZAÇÃO**: (0 a 100% e justificativa).
-
-        5. **PONTOS DE ABANDONO**: (Em quais segundos o vídeo fica chato e o público vai sair?).
-
-        ### 📝 ATIVOS DE POSTAGEM (Caso decida postar)
-
-        6. **TÍTULO E HASHTAGS**.
-
-        7. **DESCRIÇÃO SEO**.
-
-        8. **CAPÍTULOS E CORTES**.
-
-        9. **COMENTÁRIO FIXADO**.
-
-        10. **QUOTES PARA REDES SOCIAIS**.
-
-        ### 🌍 TRADUÇÃO
-
-        11. Título e Descrição em Inglês.
+        ### 📝 ATIVOS DE POSTAGEM
+        6. TÍTULO MAGNÉTICO E HASHTAGS.
+        7. DESCRIÇÃO SEO OTIMIZADA.
+        8. COMENTÁRIO FIXADO (CTA).
 
         ### 🖼️ THUMBNAIL
-
-        Escreva ao final apenas: 'CAPA: X' (onde X é o melhor segundo para thumbnail, entre 1 e 60 segundos).
+        Indique o melhor momento para a capa escrevendo exatamente: CAPA: X (onde X é o segundo).
         """
+
+        model = genai.GenerativeModel(MODEL_NAME)
+        response = model.generate_content([video_file, prompt])
         
-        with st.spinner("🤖 IA analisando vídeo... Isto pode levar alguns minutos..."):
-            model = genai.GenerativeModel(MODEL_NAME)
-            response = model.generate_content([video_file, prompt])
-        
-        if not response or not hasattr(response, 'text'):
-            st.error("❌ Não foi possível gerar a análise")
-            raise Exception("Resposta vazia da API")
-        
-        texto_ia = response.text
-        st.success("✅ Análise concluída!")
-        
-        col1, col2 = st.columns([1.2, 0.8])
+        # Exibição dos Resultados
+        col1, col2 = st.columns([1.5, 1])
         
         with col1:
             st.subheader("📋 Relatório Estratégico")
-            texto_exibicao = re.sub(r'CAPA:\s*\d+\s*', '', texto_ia, flags=re.IGNORECASE)
-            st.markdown(texto_exibicao)
-        
+            st.markdown(response.text)
+
         with col2:
             st.subheader("🖼️ Sugestão de Capa")
+            segundo = extract_thumbnail_seconds(response.text)
+            thumb, err_thumb = extract_thumbnail(video_path, segundo)
+            if thumb is not None:
+                st.image(thumb, caption=f"Sugestão no segundo {segundo}")
             
-            thumbnail_second = extract_thumbnail_seconds(texto_ia)
-            if thumbnail_second is None:
-                thumbnail_second = 1
-            
-            thumbnail, thumb_error = extract_thumbnail(video_path, thumbnail_second)
-            
-            if thumb_error:
-                st.warning(f"⚠️ Não foi possível gerar thumbnail: {thumb_error}")
-            else:
-                st.image(thumbnail, caption=f"Segundo {thumbnail_second}", use_container_width=True)
-                
-                ret, buffer = cv2.imencode('.jpg', cv2.cvtColor(thumbnail, cv2.COLOR_RGB2BGR))
-                if ret:
-                    st.download_button(
-                        label="📥 Baixar Capa",
-                        data=buffer.tobytes(),
-                        file_name=f"thumbnail_{uploaded_file.name.split('.')[0]}.jpg",
-                        mime="image/jpeg"
-                    )
-            
-            st.markdown("---")
-            st.subheader("⚡ Status de Viabilidade")
-            
-            risk_level = "SEGURO"
-            if re.search(r'\bCRÍTICO\b', texto_ia, re.IGNORECASE):
-                risk_level = "CRÍTICO"
-                st.error("🚨 **RISCO CRÍTICO**: Este vídeo pode violar diretrizes da plataforma.")
-            elif re.search(r'\bARRISCADO\b', texto_ia, re.IGNORECASE):
-                risk_level = "ARRISCADO"
-                st.warning("⚠️ **RISCO ARRISCADO**: Tome cuidado ao postar este conteúdo.")
-            else:
-                st.success("✅ **SEGURO**: Este vídeo aparenta estar dentro das diretrizes.")
-            
-            hook_match = re.search(r'HOOK[:\s]*(\d+(?:[.,]\d+)?)', texto_ia, re.IGNORECASE)
-            if hook_match:
-                hook_score = float(hook_match.group(1).replace(',', '.'))
-                if hook_score < 5:
-                    st.warning(f"⚠️ Hook fraco (Nota: {hook_score}/10). Considere refazer os primeiros segundos.")
-                elif hook_score >= 8:
-                    st.success(f"🎯 Excelente hook! (Nota: {hook_score}/10)")
-        
-        try:
-            genai.delete_file(video_file.name)
-        except Exception:
-            pass
-        
+            # Botão de download para a capa
+            if thumb is not None:
+                ret, buffer = cv2.imencode('.jpg', cv2.cvtColor(thumb, cv2.COLOR_RGB2BGR))
+                st.download_button("📥 Baixar Capa", buffer.tobytes(), "capa.jpg", "image/jpeg")
+
+        # Limpeza no Google (importante para não gastar armazenamento)
+        genai.delete_file(video_file.name)
+
     except Exception as e:
-        st.error(f"❌ Ocorreu um erro: {type(e).__name__}: {str(e)}")
-        with st.expander("Ver detalhes do erro"):
-            st.exception(e)
-        
+        st.error(f"Erro inesperado: {e}")
     finally:
         if os.path.exists(video_path):
-            try:
-                os.remove(video_path)
-            except:
-                pass
+            os.remove(video_path)
 
 else:
-    st.info("👆 Por favor, faça o upload de um vídeo para começar a análise.")
-    st.markdown("""
-    ### Como funciona:
-    1. 📹 Faça upload de um vídeo
-    2. 🕵️ Nossa IA analisa riscos e potencial de viralização
-    3. 📊 Receba um relatório completo com título, hashtags, descrição SEO e thumbnail
-    """)
+    st.info("Aguardando upload de vídeo...")
