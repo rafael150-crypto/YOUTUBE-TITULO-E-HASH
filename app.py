@@ -23,7 +23,7 @@ API_KEY = st.secrets.get("GEMINI_API_KEY", None)
 
 if not API_KEY:
     st.warning("⚠️ Chave de API não configurada nos Secrets. Por favor, insira manualmente para testar:")
-    API_KEY = st.text_input("Cole sua Gemini API Key aqui:", type="password")
+    API_KEY = st.text_input("AIzaSyBPJayL5rgY25x-zkBaZ35GDNop-8VNbt0", type="password")
     if not API_KEY:
         st.stop()
 
