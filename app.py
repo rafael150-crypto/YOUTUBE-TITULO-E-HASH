@@ -29,69 +29,55 @@ except Exception as e:
     st.error(f"Erro ao configurar API: {e}")
     st.stop()
 
-# Listar modelos disponíveis
-def list_available_models():
+# Listar modelos disponíveis (apenas gemini-3.x)
+def get_available_models():
     try:
         models = genai.list_models()
-        model_list = []
-        st.sidebar.subheader("📋 Modelos Disponíveis")
+        all_models = []
         
         for model in models:
             if "generateContent" in model.supported_methods:
-                model_list.append(model.name)
+                all_models.append(model.name)
         
-        st.sidebar.text(f"Total: {len(model_list)} modelos")
-        
-        for i, name in enumerate(model_list):
-            st.sidebar.text(f"{i+1}. {name}")
-        
-        return model_list
+        return all_models
         
     except Exception as e:
-        st.sidebar.error(f"Erro: {e}")
+        st.error(f"Erro ao listar modelos: {e}")
         return []
 
-available_models = list_available_models()
+all_models = get_available_models()
 
-# Modelo a ser usado (gemini-3.0)
-MODEL_NAME = "gemini-3.0"
+# Mostrar modelos gemini-3.x na sidebar
+st.sidebar.subheader("📋 Modelos Disponíveis")
 
-# Verificar se o modelo está disponível ou encontrar versão similar
-def find_best_model(available_models, preferred="gemini-3.0"):
-    # Tentar encontrar exatamente o modelo preferido
-    if preferred in available_models:
-        return preferred
+if all_models:
+    # Filtrar apenas modelos gemini-3.x
+    models_3x = [m for m in all_models if "gemini-3" in m]
     
-    # Tentar encontrar modelos que contenham a versão
-    for model in available_models:
-        if "gemini-3" in model:
-            return model
-    
-    # Fallback para gemini-1.5-pro se disponível
-    for model in available_models:
-        if "gemini-1.5-pro" in model:
-            return model
-    
-    # Último fallback
-    if available_models:
-        return available_models[0]
-    
-    return None
-
-best_model = find_best_model(available_models, MODEL_NAME)
-
-if best_model is None:
-    st.error("❌ Nenhum modelo disponível encontrado!")
-    st.stop()
-
-if best_model != MODEL_NAME:
-    st.sidebar.warning(f"⚠️ {MODEL_NAME} não disponível. Usando: {best_model}")
+    if models_3x:
+        st.sidebar.text(f"Modelos Gemini 3.x: {len(models_3x)}")
+        for i, name in enumerate(models_3x):
+            clean_name = name.replace("models/", "")
+            st.sidebar.text(f"  {i+1}. {clean_name}")
+        
+        # Selecionar automaticamente o primeiro modelo gemini-3.x disponível
+        MODEL_NAME = models_3x[0]
+        st.sidebar.success(f"✅ Usando: {MODEL_NAME}")
+    else:
+        st.sidebar.warning("⚠️ Nenhum modelo Gemini 3.x encontrado!")
+        st.sidebar.text("Modelos disponíveis:")
+        for name in all_models[:5]:
+            st.sidebar.text(f"  - {name}")
+        MODEL_NAME = None
 else:
-    st.sidebar.success(f"✅ Modelo {MODEL_NAME} selecionado!")
+    st.error("❌ Não foi possível carregar modelos!")
+    MODEL_NAME = None
 
-st.sidebar.markdown("---")
-st.sidebar.text(f"🎯 Modelo em uso:")
-st.sidebar.code(best_model)
+# Verificação inicial
+if MODEL_NAME is None:
+    st.error("❌ Nenhum modelo Gemini 3.x disponível!")
+    st.info("💡 Verifique sua API key e acesso aos modelos Gemini 3.0")
+    st.stop()
 
 # Função para upload de vídeo com retry
 def upload_video_with_retry(path, mime_type, max_retries=3):
@@ -263,7 +249,7 @@ if uploaded_file is not None:
         """
         
         with st.spinner("🤖 IA analisando vídeo... Isto pode levar alguns minutos..."):
-            model = genai.GenerativeModel(best_model)
+            model = genai.GenerativeModel(MODEL_NAME)
             response = model.generate_content([video_file, prompt])
         
         if not response or not hasattr(response, 'text'):
