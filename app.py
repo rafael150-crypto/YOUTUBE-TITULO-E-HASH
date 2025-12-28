@@ -29,8 +29,69 @@ except Exception as e:
     st.error(f"Erro ao configurar API: {e}")
     st.stop()
 
-# Modelo padrão
-MODEL_NAME = "gemini-1.5-flash"
+# Listar modelos disponíveis
+def list_available_models():
+    try:
+        models = genai.list_models()
+        model_list = []
+        st.sidebar.subheader("📋 Modelos Disponíveis")
+        
+        for model in models:
+            if "generateContent" in model.supported_methods:
+                model_list.append(model.name)
+        
+        st.sidebar.text(f"Total: {len(model_list)} modelos")
+        
+        for i, name in enumerate(model_list):
+            st.sidebar.text(f"{i+1}. {name}")
+        
+        return model_list
+        
+    except Exception as e:
+        st.sidebar.error(f"Erro: {e}")
+        return []
+
+available_models = list_available_models()
+
+# Modelo a ser usado (gemini-3.0)
+MODEL_NAME = "gemini-3.0"
+
+# Verificar se o modelo está disponível ou encontrar versão similar
+def find_best_model(available_models, preferred="gemini-3.0"):
+    # Tentar encontrar exatamente o modelo preferido
+    if preferred in available_models:
+        return preferred
+    
+    # Tentar encontrar modelos que contenham a versão
+    for model in available_models:
+        if "gemini-3" in model:
+            return model
+    
+    # Fallback para gemini-1.5-pro se disponível
+    for model in available_models:
+        if "gemini-1.5-pro" in model:
+            return model
+    
+    # Último fallback
+    if available_models:
+        return available_models[0]
+    
+    return None
+
+best_model = find_best_model(available_models, MODEL_NAME)
+
+if best_model is None:
+    st.error("❌ Nenhum modelo disponível encontrado!")
+    st.stop()
+
+if best_model != MODEL_NAME:
+    st.sidebar.warning(f"⚠️ {MODEL_NAME} não disponível. Usando: {best_model}")
+else:
+    st.sidebar.success(f"✅ Modelo {MODEL_NAME} selecionado!")
+
+st.sidebar.markdown("---")
+st.sidebar.text(f"🎯 Modelo em uso:")
+st.sidebar.code(best_model)
 
 # Função para upload de vídeo com retry
 def upload_video_with_retry(path, mime_type, max_retries=3):
@@ -51,20 +112,22 @@ def wait_for_processing(video_file, max_wait_time=300):
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    while video_file.state.name == "PROCESSING":
+    while True:
         elapsed = time.time() - start_time
         if elapsed > max_wait_time:
             return None, "Timeout: processamento excedeu 5 minutos"
         
-        progress = min(elapsed / max_wait_time, 1.0)
-        progress_bar.progress(progress)
-        status_text.text(f"⏳ Processando vídeo... ({int(elapsed)}s)")
-        
-        time.sleep(3)
-        try:
-            video_file = genai.get_file(video_file.name)
-        except Exception as e:
-            return None, f"Erro ao verificar status: {e}"
+        if video_file.state.name == "PROCESSING":
+            progress = min(elapsed / max_wait_time, 1.0)
+            progress_bar.progress(progress)
+            status_text.text(f"⏳ Processando vídeo... ({int(elapsed)}s)")
+            time.sleep(3)
+            try:
+                video_file = genai.get_file(video_file.name)
+            except Exception as e:
+                return None, f"Erro ao verificar status: {e}"
+        else:
+            break
     
     progress_bar.empty()
     status_text.empty()
@@ -200,7 +263,7 @@ if uploaded_file is not None:
         """
         
         with st.spinner("🤖 IA analisando vídeo... Isto pode levar alguns minutos..."):
-            model = genai.GenerativeModel(MODEL_NAME)
+            model = genai.GenerativeModel(best_model)
             response = model.generate_content([video_file, prompt])
         
         if not response or not hasattr(response, 'text'):
