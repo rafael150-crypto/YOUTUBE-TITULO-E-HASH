@@ -13,7 +13,7 @@ st.title("🔥 Validador Viral - Modo de Segurança")
 
 # 2. Configuração da Chave (Verifique se a sua chave está ativa)
 # DICA: Tente criar uma chave NOVA no AI Studio se o erro persistir.
-API_KEY = st.secrets.get("GEMINI_API_KEY", "AIzaSyBPJfcir2lI-HEnbXgTeKUhsPu392f-gv4")
+API_KEY = st.secrets.get("GEMINI_API_KEY", "AIzaSyBXOWI1XfANsA6tl9ihU-T_fGrFcyVzcKs")
 
 try:
     genai.configure(api_key=API_KEY)
