@@ -21,7 +21,6 @@ st.markdown("---")
 API_KEY = st.secrets.get("GEMINI_API_KEY", None)
 
 if not API_KEY:
-    # Para desenvolvimento local, use secrets ou defina diretamente
     API_KEY = "AIzaSyBPJayL5rgY25x-zkBaZ35GDNop-8VNbt0"
 
 try:
@@ -125,7 +124,6 @@ if uploaded_file is not None:
     for key, value in file_details.items():
         st.sidebar.text(f"{key}: {value}")
     
-    # Validação de tamanho
     max_size_mb = 50
     if uploaded_file.size > max_size_mb * 1024 * 1024:
         st.error(f"❌ Arquivo muito grande! Máximo permitido: {max_size_mb} MB")
@@ -202,7 +200,6 @@ if uploaded_file is not None:
         """
         
         with st.spinner("🤖 IA analisando vídeo... Isto pode levar alguns minutos..."):
-            # Usa o modelo correto
             model = genai.GenerativeModel(MODEL_NAME)
             response = model.generate_content([video_file, prompt])
         
@@ -213,7 +210,6 @@ if uploaded_file is not None:
         texto_ia = response.text
         st.success("✅ Análise concluída!")
         
-        # Layout da resposta
         col1, col2 = st.columns([1.2, 0.8])
         
         with col1:
@@ -265,11 +261,10 @@ if uploaded_file is not None:
                 elif hook_score >= 8:
                     st.success(f"🎯 Excelente hook! (Nota: {hook_score}/10)")
         
-        # Limpar arquivo temporário
         try:
             genai.delete_file(video_file.name)
         except Exception:
-            pass  # Se não conseguir deletar, não é crítico
+            pass
         
     except Exception as e:
         st.error(f"❌ Ocorreu um erro: {type(e).__name__}: {str(e)}")
