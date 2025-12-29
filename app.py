@@ -1,6 +1,6 @@
 """
 Viral Strategist Pro - Análise de Vídeos com Google Gemini
-Versão com Debug e Correção Definitiva
+Versão com API Key Fixada no Código
 """
 
 import streamlit as st
@@ -8,34 +8,21 @@ import google.generativeai as genai
 import os
 import tempfile
 
+# ============================================
+# 🔑 COLE SUA API KEY ABAIXO
+# ============================================
+GEMINI_API_KEY = "AIzaSyD8ijELhs2zJKFksT6w6qidZ21aLGGdcC0"
+# ============================================
+
 st.set_page_config(
     page_title="Viral Strategist Pro",
     page_icon="🚀",
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 def configure_gemini(api_key):
     genai.configure(api_key=api_key)
-
-def get_api_key():
-    """Obtém a API Key com múltiplas verificações"""
-    # Debug: mostra todos os secrets disponíveis
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔍 Debug")
-    st.sidebar.write("Secrets disponíveis:", dict(st.secrets))
-    
-    # Tenta múltiplas variações de nomes
-    for key_name in ["GOOGLE_API_KEY", "google_api_key", "API_KEY", "api_key"]:
-        try:
-            api_key = st.secrets[key_name]
-            if api_key and api_key != "":
-                st.sidebar.success(f"✅ API Key encontrada: {key_name}")
-                return api_key
-        except:
-            continue
-    
-    return None
 
 def save_uploaded_file(uploaded_file):
     try:
@@ -51,7 +38,7 @@ def save_uploaded_file(uploaded_file):
 def analyze_video_with_gemini(file_path, api_key):
     try:
         configure_gemini(api_key)
-        model = genai.GenerativeModel("gemini-1.5-pro")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         with st.spinner("📤 Enviando vídeo para análise..."):
             video_file = genai.upload_file(path=file_path)
@@ -63,13 +50,17 @@ def analyze_video_with_gemini(file_path, api_key):
         prompt = """
         Você é o Viral Strategist Pro, um especialista em marketing de afiliados.
 
-        Analise este vídeo e forneça:
-        1. O que está sendo vendido?
-        2. Segundo exato de maior impacto (ex: 00:15)
-        3. Gatilhos mentais encontrados
-        4. Potencial viral (0-10)
-        5. Pontos positivos e de melhoria
-        6. Estratégia para YouTube Shorts, Facebook Reels e Shopee Video
+        Analise este vídeo de produto e forneça:
+
+        1. **PRODUTO**: O que está sendo vendido?
+        2. **MELHOR SEGUNDO**: Segundo exato de maior impacto (ex: 00:15)
+        3. **GATILHOS**: Gatilhos mentais encontrados (escassez, urgência, curiosidade, prova social)
+        4. **POTENCIAL VIRAL**: Nota de 0 a 10
+        5. **POSITIVO**: O que funciona bem
+        6. **MELHORAR**: O que pode ser melhorado
+        7. **ESTRATÉGIA COMPLETA**: YouTube Shorts, Facebook Reels e Shopee Video
+
+        Use marcadores para facilitar a leitura.
         """
         
         with st.spinner("🤖 Gemini analisando..."):
@@ -87,46 +78,46 @@ def main():
     st.markdown("**Análise de Vídeos com Google Gemini**")
     st.divider()
     
-    # Verificação de API Key
-    api_key = get_api_key()
-    
-    if not api_key:
-        st.error("⚠️ API Key não encontrada!")
+    # === BARRA LATERAL ===
+    with st.sidebar:
+        st.header("⚙️ Configurações")
         
-        st.info("""
-        ### 🔧 Solução:
+        # Verifica se a API Key foi configurada
+        if GEMINI_API_KEY == "cole_sua_api_key_aqui":
+            st.error("⚠️ API Key não configurada!")
+            st.info("""
+            **Para configurar:**
+            
+            1. Edite o arquivo app.py
+            2. Na linha 9, cole sua API Key
+            3. Faça redeploy
+            
+            Como obter:
+            https://aistudio.google.com/app/apikey
+            """)
+        else:
+            st.success("✅ API Key configurada!")
         
-        **No Streamlit Cloud:**
-        1. Vá em Settings → Secrets
-        2. Configure assim:
+        st.markdown("---")
+        st.markdown("""
+        ### 📋 Como usar:
+        1. Faça upload do vídeo
+        2. Clique em analisar
         
-        ```toml
-        GOOGLE_API_KEY = "AIza..."
-        ```
-        
-        **IMPORTANTE:**
-        - Use aspas duplas ao redor da chave
-        - Não use aspas simples ''
-        - Não use espaços extras
+        ### 💡 Dicas:
+        - Vídeo máx: 100MB
+        - Formatos: MP4, MOV, AVI
         """)
-        
-        # Exemplo visual
-        st.markdown("### ✅ Exemplo correto:")
-        st.code('GOOGLE_API_KEY = "AIzaSyD-xxxxxxxxxxxxx"', language="toml")
-        
-        st.markdown("### ❌ Exemplo errado:")
-        st.code("GOOGLE_API_KEY = 'AIzaSyD-xxxxxxxxxxxxx'", language="toml")
-        
-        return
     
-    # Se chegou aqui, a API Key foi encontrada
-    st.success(f"✅ API Key carregada com sucesso!")
+    # === ÁREA PRINCIPAL ===
+    if GEMINI_API_KEY == "cole_sua_api_key_aqui":
+        st.stop()
     
     st.subheader("📹 Upload do Vídeo")
     uploaded_file = st.file_uploader(
-        "Arraste e solte seu vídeo",
+        "Arraste e solte seu vídeo aqui",
         type=["mp4", "mov", "avi"],
-        help="Vídeos de produtos para análise"
+        help="Vídeos de produtos para análise de marketing"
     )
     
     if uploaded_file is not None:
@@ -137,11 +128,11 @@ def main():
                 file_path = save_uploaded_file(uploaded_file)
             
             if file_path:
-                analysis = analyze_video_with_gemini(file_path, api_key)
+                analysis = analyze_video_with_gemini(file_path, GEMINI_API_KEY)
                 if analysis:
                     st.success("✅ Análise concluída!")
                     st.markdown("---")
-                    st.subheader("📊 Resultado")
+                    st.subheader("📊 Resultado da Análise")
                     st.markdown(analysis)
                     
                     st.markdown("---")
