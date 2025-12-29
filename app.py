@@ -1,6 +1,6 @@
 """
 Viral Strategist Pro - Análise de Vídeos com Google Gemini
-Versão Otimizada para Streamlit Cloud
+Versão com Debug e Correção Definitiva
 """
 
 import streamlit as st
@@ -19,11 +19,23 @@ def configure_gemini(api_key):
     genai.configure(api_key=api_key)
 
 def get_api_key():
-    """Obtém a API Key dos secrets ou input do usuário"""
-    try:
-        return st.secrets["GOOGLE_API_KEY"]
-    except:
-        return None
+    """Obtém a API Key com múltiplas verificações"""
+    # Debug: mostra todos os secrets disponíveis
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔍 Debug")
+    st.sidebar.write("Secrets disponíveis:", dict(st.secrets))
+    
+    # Tenta múltiplas variações de nomes
+    for key_name in ["GOOGLE_API_KEY", "google_api_key", "API_KEY", "api_key"]:
+        try:
+            api_key = st.secrets[key_name]
+            if api_key and api_key != "":
+                st.sidebar.success(f"✅ API Key encontrada: {key_name}")
+                return api_key
+        except:
+            continue
+    
+    return None
 
 def save_uploaded_file(uploaded_file):
     try:
@@ -67,7 +79,7 @@ def analyze_video_with_gemini(file_path, api_key):
         return response.text
         
     except Exception as e:
-        st.error(f"Erro: {e}")
+        st.error(f"Erro na análise: {e}")
         return None
 
 def main():
@@ -75,18 +87,40 @@ def main():
     st.markdown("**Análise de Vídeos com Google Gemini**")
     st.divider()
     
+    # Verificação de API Key
     api_key = get_api_key()
     
     if not api_key:
         st.error("⚠️ API Key não encontrada!")
+        
         st.info("""
-        ### Como adicionar a API Key:
+        ### 🔧 Solução:
         
         **No Streamlit Cloud:**
         1. Vá em Settings → Secrets
-        2. Adicione: GOOGLE_API_KEY=sua_chave_aqui
+        2. Configure assim:
+        
+        ```toml
+        GOOGLE_API_KEY = "AIza..."
+        ```
+        
+        **IMPORTANTE:**
+        - Use aspas duplas ao redor da chave
+        - Não use aspas simples ''
+        - Não use espaços extras
         """)
+        
+        # Exemplo visual
+        st.markdown("### ✅ Exemplo correto:")
+        st.code('GOOGLE_API_KEY = "AIzaSyD-xxxxxxxxxxxxx"', language="toml")
+        
+        st.markdown("### ❌ Exemplo errado:")
+        st.code("GOOGLE_API_KEY = 'AIzaSyD-xxxxxxxxxxxxx'", language="toml")
+        
         return
+    
+    # Se chegou aqui, a API Key foi encontrada
+    st.success(f"✅ API Key carregada com sucesso!")
     
     st.subheader("📹 Upload do Vídeo")
     uploaded_file = st.file_uploader(
