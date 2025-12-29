@@ -12,7 +12,7 @@ import tempfile
 # 🔑 COLE SUA API KEY DO GEMINI ABAIXO
 # ============================================
 # Obtenha em: https://aistudio.google.com/app/apikey
-GEMINI_API_KEY = "cole_sua_api_key_aqui"
+GEMINI_API_KEY = "AIzaSyD8ijELhs2zJKFksT6w6qidZ21aLGGdcC0"
 # ============================================
 
 st.set_page_config(
