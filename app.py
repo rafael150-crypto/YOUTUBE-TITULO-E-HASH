@@ -1,6 +1,6 @@
 """
 Viral Strategist Pro - Análise de Vídeos com Google Gemini
-Versão FINAL - API Key Fixada no Código
+Versão com Múltiplos Modelos - Fallback Automático
 """
 
 import streamlit as st
@@ -9,12 +9,10 @@ import os
 import tempfile
 
 # ============================================
-# 🔑 IMPORTANTE: EDITE A LINHA ABAIXO!
+# 🔑 COLE SUA API KEY DO GEMINI ABAIXO
 # ============================================
-# Cole sua API Key do Gemini entre as aspas duplas
-# Exemplo: GEMINI_API_KEY = "AIzaSyD-xxxxx-xxxxx"
 # Obtenha em: https://aistudio.google.com/app/apikey
-GEMINI_API_KEY = "AIzaSyD8ijELhs2zJKFksT6w6qidZ21aLGGdcC0"  # <-- SUBSTITUA PELA SUA CHAVE!
+GEMINI_API_KEY = "cole_sua_api_key_aqui"
 # ============================================
 
 st.set_page_config(
@@ -38,66 +36,92 @@ def save_uploaded_file(uploaded_file):
         st.error(f"Erro ao salvar arquivo: {e}")
         return None
 
-def analyze_video_with_gemini(file_path, api_key):
+def listar_modelos_disponiveis(api_key):
+    """Lista os modelos disponíveis para a API Key"""
     try:
         configure_gemini(api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        
-        with st.spinner("📤 Enviando vídeo para análise..."):
-            video_file = genai.upload_file(path=file_path)
-        
-        while video_file.state.name == "PROCESSING":
-            with st.spinner("⏳ Processando vídeo..."):
-                video_file = genai.get_file(video_file.name)
-        
-        prompt = """
-        Você é o Viral Strategist Pro, um especialista em marketing de afiliados.
-
-        Analise este vídeo de produto e forneça:
-
-        1. **PRODUTO**: O que está sendo vendido?
-        2. **MELHOR SEGUNDO**: Segundo exato de maior impacto (ex: 00:15)
-        3. **GATILHOS**: Gatilhos mentais encontrados (escassez, urgência, curiosidade, prova social)
-        4. **POTENCIAL VIRAL**: Nota de 0 a 10
-        5. **POSITIVO**: O que funciona bem
-        6. **MELHORAR**: O que pode ser melhorado
-        7. **ESTRATÉGIA COMPLETA**: YouTube Shorts, Facebook Reels e Shopee Video
-
-        Use marcadores para facilitar a leitura.
-        """
-        
-        with st.spinner("🤖 Gemini analisando..."):
-            response = model.generate_content([video_file, prompt])
-        genai.delete_file(video_file.name)
-        
-        return response.text
-        
+        modelos = genai.list_models()
+        return [m.name for m in modelos]
     except Exception as e:
-        st.error(f"Erro na análise: {e}")
         return None
+
+def analyze_video_with_gemini(file_path, api_key):
+    """Tenta analisar vídeo com múltiplos modelos"""
+    
+    # Lista de modelos a tentar (do mais recente ao mais antigo)
+    modelos_a_tentar = [
+        "gemini-1.5-pro",
+        "gemini-1.5-flash", 
+        "gemini-1.0-pro",
+        "gemini-pro"
+    ]
+    
+    ultimo_erro = None
+    
+    for modelo in modelos_a_tentar:
+        try:
+            configure_gemini(api_key)
+            model = genai.GenerativeModel(modelo)
+            
+            with st.spinner(f"📤 Enviando vídeo para análise (modelo: {modelo})..."):
+                video_file = genai.upload_file(path=file_path)
+            
+            while video_file.state.name == "PROCESSING":
+                with st.spinner("⏳ Processando vídeo..."):
+                    video_file = genai.get_file(video_file.name)
+            
+            prompt = """
+            Você é o Viral Strategist Pro, um especialista em marketing de afiliados.
+
+            Analise este vídeo de produto e forneça:
+
+            1. **PRODUTO**: O que está sendo vendido?
+            2. **MELHOR SEGUNDO**: Segundo exato de maior impacto (ex: 00:15)
+            3. **GATILHOS**: Gatilhos mentais encontrados (escassez, urgência, curiosidade, prova social)
+            4. **POTENCIAL VIRAL**: Nota de 0 a 10
+            5. **POSITIVO**: O que funciona bem
+            6. **MELHORAR**: O que pode ser melhorado
+            7. **ESTRATÉGIA COMPLETA**: YouTube Shorts, Facebook Reels e Shopee Video
+
+            Use marcadores para facilitar a leitura.
+            """
+            
+            with st.spinner(f"🤖 Gemini analisando com {modelo}..."):
+                response = model.generate_content([video_file, prompt])
+            genai.delete_file(video_file.name)
+            
+            return response.text
+            
+        except Exception as e:
+            ultimo_erro = str(e)
+            continue
+    
+    st.error(f"Erro em todos os modelos: {ultimo_erro}")
+    return None
 
 def main():
     st.title("🚀 Viral Strategist Pro")
     st.markdown("**Análise de Vídeos com Google Gemini**")
     st.divider()
     
-    # Verifica se a API Key foi configurada corretamente
-    api_key_configurada = GEMINI_API_KEY and GEMINI_API_KEY.startswith("AIza")
+    # Verifica se a API Key foi configurada
+    api_key_configurada = GEMINI_API_KEY and GEMINI_API_KEY != "cole_sua_api_key_aqui"
     
     with st.sidebar:
         st.header("⚙️ Configurações")
         
         if api_key_configurada:
             st.success("✅ API Key configurada!")
-            st.caption(f"Chave: {GEMINI_API_KEY[:10]}...{GEMINI_API_KEY[-5:]}")
+            st.caption(f"Chave: {GEMINI_API_KEY[:8]}...{GEMINI_API_KEY[-4:]}")
         else:
             st.error("⚠️ API Key não configurada!")
         
         st.markdown("---")
         st.markdown("""
         ### 📋 Como usar:
-        1. Faça upload do vídeo
-        2. Clique em analisar
+        1. Configure a API Key
+        2. Faça upload do vídeo
+        3. Clique em analisar
         
         ### 💡 Dicas:
         - Vídeo máx: 100MB
@@ -108,26 +132,28 @@ def main():
         st.error("⚠️ API Key não configurada!")
         
         st.markdown("""
-        ### 🔧 Para configurar a API Key:
+        ### 🔧 Como configurar:
 
-        **Passo 1:** Acesse https://aistudio.google.com/app/apikey
+        **1.** Acesse: https://aistudio.google.com/app/apikey
         
-        **Passo 2:** Clique em "Create API Key" e copie a chave
+        **2.** Clique em "Create API Key"
         
-        **Passo 3:** No GitHub, edite o arquivo app.py:
+        **3.** Copie a chave (começa com "AIzaSy...")
         
-        1. Entre no seu repositório
-        2. Clique em app.py
-        3. Clique no ícone de lápis (✏️)
-        4. Na linha 16, onde está:
+        **4.** Edite o arquivo app.py no GitHub:
+        - Entre no seu repositório
+        - Clique em app.py
+        - Clique no lápis (✏️)
+        - Na linha 17, substitua:
         ```python
-        GEMINI_API_KEY = "AIzaSyD-xxxxxxxxxxxxxxxxxxxx"
+        GEMINI_API_KEY = "cole_sua_api_key_aqui"
         ```
-        **Substitua "AIzaSyD-xxxxxxxxxxxxxxxxxxxx" pela sua chave real**
+        Por:
+        ```python
+        GEMINI_API_KEY = "sua_chave_real_aqui"
+        ```
         
-        5. Clique em "Commit changes"
-        
-        **Passo 4:** No Streamlit Cloud, clique em "Deploy"
+        **5.** Commit changes → Deploy no Streamlit
         """)
         st.stop()
     
