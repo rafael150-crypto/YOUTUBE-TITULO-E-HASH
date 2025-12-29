@@ -1,6 +1,6 @@
 """
 Viral Strategist Pro - Análise de Vídeos com Google Gemini
-Versão com API Key Fixada no Código
+Versão FINAL - API Key Fixada no Código
 """
 
 import streamlit as st
@@ -9,9 +9,12 @@ import os
 import tempfile
 
 # ============================================
-# 🔑 COLE SUA API KEY ABAIXO
+# 🔑 IMPORTANTE: EDITE A LINHA ABAIXO!
 # ============================================
-GEMINI_API_KEY = "AIzaSyD8ijELhs2zJKFksT6w6qidZ21aLGGdcC0"
+# Cole sua API Key do Gemini entre as aspas duplas
+# Exemplo: GEMINI_API_KEY = "AIzaSyD-xxxxx-xxxxx"
+# Obtenha em: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY = "AIzaSyD8ijELhs2zJKFksT6w6qidZ21aLGGdcC0"  # <-- SUBSTITUA PELA SUA CHAVE!
 # ============================================
 
 st.set_page_config(
@@ -78,25 +81,17 @@ def main():
     st.markdown("**Análise de Vídeos com Google Gemini**")
     st.divider()
     
-    # === BARRA LATERAL ===
+    # Verifica se a API Key foi configurada corretamente
+    api_key_configurada = GEMINI_API_KEY and GEMINI_API_KEY.startswith("AIza")
+    
     with st.sidebar:
         st.header("⚙️ Configurações")
         
-        # Verifica se a API Key foi configurada
-        if GEMINI_API_KEY == "cole_sua_api_key_aqui":
-            st.error("⚠️ API Key não configurada!")
-            st.info("""
-            **Para configurar:**
-            
-            1. Edite o arquivo app.py
-            2. Na linha 9, cole sua API Key
-            3. Faça redeploy
-            
-            Como obter:
-            https://aistudio.google.com/app/apikey
-            """)
-        else:
+        if api_key_configurada:
             st.success("✅ API Key configurada!")
+            st.caption(f"Chave: {GEMINI_API_KEY[:10]}...{GEMINI_API_KEY[-5:]}")
+        else:
+            st.error("⚠️ API Key não configurada!")
         
         st.markdown("---")
         st.markdown("""
@@ -109,8 +104,31 @@ def main():
         - Formatos: MP4, MOV, AVI
         """)
     
-    # === ÁREA PRINCIPAL ===
-    if GEMINI_API_KEY == "cole_sua_api_key_aqui":
+    if not api_key_configurada:
+        st.error("⚠️ API Key não configurada!")
+        
+        st.markdown("""
+        ### 🔧 Para configurar a API Key:
+
+        **Passo 1:** Acesse https://aistudio.google.com/app/apikey
+        
+        **Passo 2:** Clique em "Create API Key" e copie a chave
+        
+        **Passo 3:** No GitHub, edite o arquivo app.py:
+        
+        1. Entre no seu repositório
+        2. Clique em app.py
+        3. Clique no ícone de lápis (✏️)
+        4. Na linha 16, onde está:
+        ```python
+        GEMINI_API_KEY = "AIzaSyD-xxxxxxxxxxxxxxxxxxxx"
+        ```
+        **Substitua "AIzaSyD-xxxxxxxxxxxxxxxxxxxx" pela sua chave real**
+        
+        5. Clique em "Commit changes"
+        
+        **Passo 4:** No Streamlit Cloud, clique em "Deploy"
+        """)
         st.stop()
     
     st.subheader("📹 Upload do Vídeo")
